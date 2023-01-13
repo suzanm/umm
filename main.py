@@ -1,8 +1,11 @@
-import tkinter
-import sqlite3
+
 import tkinter as tk
+import sqlite3
+from tkinter import *
+import products.py
+from tkinter import messagebox
 
-
+#-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Connect to the database
 conn = sqlite3.connect('coffee_shop.db')
@@ -10,142 +13,143 @@ conn = sqlite3.connect('coffee_shop.db')
 # Create a cursor
 cursor = conn.cursor()
 
-# Checks if the products table exists
-cursor.execute('''
-    SELECT name FROM sqlite_master WHERE type='table' AND name='products'
-''')
+def initialize_database():
+    cursor.execute('''
+        SELECT name FROM sqlite_master WHERE type='table' AND name='orders'
+    ''')
+    if cursor.fetchone() is None:
+        cursor.execute('''
+            CREATE TABLE orders (
+                id INTEGER PRIMARY KEY,
+                product_id INTEGER NOT NULL,
+                quantity INTEGER NOT NULL,
+                total_price REAL NOT NULL,
+                FOREIGN KEY (product_id) REFERENCES products(id)
+            )
+        ''')
+    conn.commit()
 
-# If the table does not exist, creates it
-if not cursor.fetchone():
-  cursor.execute('''
-      CREATE TABLE products (
-          id INTEGER PRIMARY KEY,
-          name TEXT NOT NULL,
-          price REAL NOT NULL
-      )
-  ''')
-
-# Inserts some products
-cursor.execute('''
-    INSERT INTO products (name, price) VALUES
-    ('Coffee', 3.50),
-    ('Tea', 2.50),
-    ('Hot Chocolate', 3.00)
-''')
+initialize_database()
 
 root = tk.Tk()
-
-# Checks if the orders table exists
-cursor.execute('''
-    SELECT name FROM sqlite_master WHERE type='table' AND name='orders'
-''')
-
-#Table with orders
-if not cursor.fetchone():
-    cursor.execute('''
-        CREATE TABLE orders (
-            id INTEGER PRIMARY KEY,
-            product_id INTEGER NOT NULL,
-            quantity INTEGER NOT NULL,
-            total_price REAL NOT NULL,
-            FOREIGN KEY (product_id) REFERENCES products(id)
-        )
-    ''')
-
-# Orders
-cursor.execute('''
-    INSERT INTO orders (product_id, quantity, total_price) VALUES
-    (1, 2, 7.00),
-    (2, 3, 7.50),
-    (3, 1, 3.00)
-''')
-
-  
+root.geometry('700x400')
 class OrderForm(tk.Frame):
     def __init__(self, parent, *args, **kwargs):
-        tk.Frame.__init__(self, parent, *args, **kwargs)
+        tk.Frame.__init__(self, parent, *args,**kwargs)
 
-        # Create a Listbox for selecting the product
+        # Product list
         self.product_list = tk.Listbox(self)
-
-        # Populate the Listbox with the available products
         cursor.execute('''
-            SELECT name FROM products  
+            SELECT name FROM products
         ''')
         for row in cursor:
             self.product_list.insert(tk.END, row[0])
+        self.product_list.grid(row=0, column=0, padx=5, pady=5)
+        self.product_list.configure(height=15, width=20)
 
-        # Create a widget for entering the quantity
+        # Quantity entry
         self.quantity_label = tk.Label(self, text="Quantity")
         self.quantity_entry = tk.Entry(self)
 
         # Create a button to submit the order
-        self.submit_button = tk.Button(self, text="Submit", command=self.place_order)
+        self.submit = tk.Button(self, text="Submit", command=self.place_order)
 
         # Lay out the widgets in a grid
         self.product_list.grid(row=0, column=0)
-        self.quantity_label.grid(row=1, column=0)
-        self.quantity_entry.grid(row=1, column=1)
-        self.submit_button.grid(row=2, column=0, columnspan=2)
+        self.quantity_label.grid(row=5, column=1)
+        self.quantity_entry.grid(row=5, column=2)
+        self.submit.grid(row=5, column=3, columnspan=2)
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     def place_order(self):
-      # Get the selected product and quantity from the form
-      product = self.product_list.get(self.product_list.curselection())
-      quantity = int(self.quantity_entry.get())
-  
-      # Retrive product id
-      cursor.execute('''
-          SELECT id, price FROM products WHERE name=?
-      ''', (product,))
-      product_id, price = cursor.fetchone()
+        # Check if a product is selected
+        if self.product_list.curselection():
+            product = self.product_list.get(self.product_list.curselection())
+        else:
+            # Inform the user that no product is selected
+            messagebox.showerror("Error", "No product selected.")
+            return
+        # Check if the quantity is valid
+        try:
+            quantity = int(self.quantity_entry.get())
+        except ValueError:
+            # Inform the user that the entered value is not valid
+            messagebox.showerror("Error", "Invalid Quantity.")
+            return
+        # Retrieve the product_id and price for the given product
+        cursor.execute('''
+            SELECT id, price FROM products WHERE name=?
+        ''', (product,))
+        product_id, price = cursor.fetchone()
 
-      # Total Price
-      total_price = quantity * price
+        # Calculate the total price for the order
+        total_price = quantity * price
 
-      # Add order to database
-      cursor.execute('''
-        INSERT INTO orders (product_id, quantity, total_price) VALUES (?, ?, ?)
-      ''', (product_id, quantity, total_price))
-      conn.commit()
+        # Add the order to the database
+        cursor.execute(''' 
+            INSERT INTO orders (product_id, quantity, total_price) VALUES (?, ?, ?)
+        ''', (product_id, quantity, total_price))
+        conn.commit()
+
+#-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+class OrdersList(tk.Frame):
+    def __init__(self, parent, *args, **kwargs):
+        tk.Frame.__init__(self, parent, *args, **kwargs)
+
+        # Create the Listbox to display the orders
+        self.orders_list = tk.Listbox(self)
+        self.orders_list.grid(row=0, column=0, padx=5, pady=5)
+        self.orders_list.configure(height=15, width=20)
+
+        # Populate the Listbox with the existing orders
+        cursor.execute('''
+            SELECT products.name, orders.quantity, orders.total_price 
+            FROM orders 
+            INNER JOIN products ON products.id = orders.product_id
+        ''')
+        for row in cursor:
+            self.orders_list.insert(tk.END, row[0] + ' x ' + str(row[1]) + ' = $' + str(row[2]))
 
 
-if not hasattr(root, 'form'): root.form = OrderForm(root)
+
+# Create the OrderForm and OrdersList frames and add them to the main window
+
 form = OrderForm(root)
 form.pack()
 root.mainloop()
-#-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+#-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-# Commit changes
-conn.commit()
+frame1 = tk.Frame(root)
+frame2 = tk.Frame(root)
+order_form = OrderForm(frame1)
+orders_list = OrdersList(frame2)
+frame1.grid(row=0, column=0, padx=5, pady=5)
+frame2.grid(row=0, column=1, padx=5, pady=5)
+order_form.grid(row=0, column=0)
+orders_list.grid(row=0, column=0)
+root.mainloop()
 
-# Select all products
-cursor.execute('''
-    SELECT * FROM products
-''')
-
-# Print the products
-print('PRODUCTS:')
-print('----------')
-products = cursor.fetchall()
-for row in products:
-    print(f'ID: {row[0]} | Name: {row[1]} | Price: ${row[2]:.2f}')
-
-# Create a new cursor for the orders
-cursor = conn.cursor()
-
-# Select all orders
-cursor.execute('''
-    SELECT * FROM orders
-''')
-
-# Print the orders
-print('\nORDERS:')
-print('----------')
-orders = cursor.fetchall()
-for row in orders:
-    print(f'ID: {row[0]} | Product ID: {row[1]} | Quantity: {row[2]} | Total Price: ${row[3]:.2f}')
-
-  
-# Close the connection
+#-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    # Close the database connection
 conn.close()
+  
+#-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+root.title("Coffee Shop Order Form")
+
+# Main Frame
+main_frame = tk.Frame(root)
+main_frame.pack(fill='both', expand=True)
+
+# Create the OrderForm and OrdersList frames as children of the main frame
+order_form = OrderForm(main_frame)
+orders_list = OrdersList(main_frame)
+
+# Pack the OrderForm and OrdersList frames side by side
+order_form.pack(side='left', fill='both', expand=True)
+orders_list.pack(side='right', fill='both', expand=True)
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
