@@ -20,21 +20,23 @@ if cursor.fetchone() is None:
     ''')
 
 # Insert some sample products
-cursor.execute('''
+cursor.execute ('''
     INSERT INTO products (name, price) VALUES
     ('Coffee', 3.00),
     ('Tea', 2.50),
-    ('Hot Chocolate', 3.00)
-    ('Cappuccino', 4,00),
+    ('Hot Chocolate', 3.00),
+    ('Americano', 2.50),
+    ('Iced Coffee', 3.00),
+    ('Cappuccino', 4.00),
     ('Latte', 4.00),
-    ('Croissant', 3.50) 
-    ('Muffin', 2.75) 
-    ('Scone', 2.00) 
-    ('Coffee Cake', 3.50) 
-    ('Cheesecake', 4.50) 
-    ('All Bagels', 2.00) 
-    ('Club Sandwich', 10.00)
-    ('Veggie Sandwich', 6.50)
+    ('Croissant', 3.50),
+    ('Muffin', 2.75),
+    ('Scone', 2.00),
+    ('Coffee Cake', 3.50),
+    ('Cheesecake', 4.50),
+    ('All Bagels', 2.00),
+    ('Club Sandwich', 10.00),
+    ('Veggie Sandwich', 6.50);
 ''')
 
 # Save changes
